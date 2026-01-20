@@ -1,28 +1,70 @@
 # Dependencies
 node_modules/
-web/node_modules/
-macos/node_modules/
+**/node_modules/
+Chatbot/web/node_modules/
+Chatbot/macos/node_modules/
 
 # Package lock files (each version has its own)
 package-lock.json
+**/package-lock.json
 
 # Build outputs
 dist/
-macos/dist/
-web/dist/
+**/dist/
+Chatbot/macos/dist/
+Chatbot/web/dist/
 
 # Logs
 *.log
+**/*.log
 
 # OS files
 .DS_Store
+**/.DS_Store
+Thumbs.db
 
 # Temporary files
-macos/.server-wrapper.js
+Chatbot/macos/.server-wrapper.js
 
 # Build artifacts (unnecessary files)
-macos/dist/*.zip
-macos/dist/*.blockmap
-macos/dist/builder-*.yml
-macos/dist/builder-*.yaml
-macos/dist/mac-*/
+Chatbot/macos/dist/*.zip
+Chatbot/macos/dist/*.blockmap
+Chatbot/macos/dist/builder-*.yml
+Chatbot/macos/dist/builder-*.yaml
+Chatbot/macos/dist/mac-*/
+
+# Secrets and sensitive files
+secrets.md
+**/secrets.md
+*.key
+*.pem
+.env
+.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# Excel temporary files
+~$*.xlsx
+~$*.xls
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python virtual environments
+venv/
+env/
+ENV/
+.venv/
