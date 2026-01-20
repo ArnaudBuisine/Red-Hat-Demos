@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat Assistant - Red Hat AI</title>
+    <!-- KaTeX for LaTeX math rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <!-- Marked.js for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -108,6 +114,69 @@
             border-radius: 12px;
             line-height: 1.5;
             word-wrap: break-word;
+        }
+
+        /* Markdown formatting styles */
+        .message-content p {
+            margin: 0.5em 0;
+        }
+
+        .message-content p:first-child {
+            margin-top: 0;
+        }
+
+        .message-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        .message-content ul,
+        .message-content ol {
+            margin: 0.5em 0;
+            padding-left: 1.5em;
+        }
+
+        .message-content li {
+            margin: 0.25em 0;
+        }
+
+        .message-content code {
+            background: rgba(0, 0, 0, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .message-content pre {
+            background: rgba(0, 0, 0, 0.05);
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 0.5em 0;
+        }
+
+        .message-content pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .message-content strong {
+            font-weight: 600;
+        }
+
+        .message-content em {
+            font-style: italic;
+        }
+
+        /* KaTeX math styling */
+        .message-content .katex {
+            font-size: 1.1em;
+        }
+
+        .message-content .katex-display {
+            margin: 1em 0;
+            overflow-x: auto;
+            overflow-y: hidden;
         }
 
         .message.user .message-content {
@@ -250,6 +319,50 @@
         const sendButton = document.getElementById('sendButton');
         let sessionId = 'session-' + Date.now();
         let currentAssistantMessage = null;
+        let currentAssistantRawContent = '';
+
+        // Configure marked.js for markdown rendering
+        if (typeof marked !== 'undefined') {
+            marked.setOptions({
+                breaks: true,
+                gfm: true
+            });
+        }
+
+        // Function to render markdown and LaTeX
+        function renderFormattedContent(rawContent) {
+            if (!rawContent) return '';
+            
+            // First, render markdown
+            let html = '';
+            if (typeof marked !== 'undefined') {
+                html = marked.parse(rawContent);
+            } else {
+                // Fallback: escape HTML and preserve line breaks
+                html = rawContent
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/\n/g, '<br>');
+            }
+            
+            return html;
+        }
+
+        // Function to render LaTeX in an element
+        function renderLaTeX(element) {
+            if (typeof renderMathInElement !== 'undefined') {
+                renderMathInElement(element, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        }
 
         function addMessage(role, content, isError = false) {
             // Remove empty state if present
@@ -267,7 +380,16 @@
             
             const contentDiv = document.createElement('div');
             contentDiv.className = 'message-content';
-            contentDiv.textContent = content;
+            
+            if (role === 'assistant' && !isError) {
+                // For assistant messages, render formatted content
+                contentDiv.innerHTML = renderFormattedContent(content);
+                // Render LaTeX after a short delay to ensure DOM is ready
+                setTimeout(() => renderLaTeX(contentDiv), 10);
+            } else {
+                // For user messages and errors, use plain text
+                contentDiv.textContent = content;
+            }
             
             messageDiv.appendChild(avatar);
             messageDiv.appendChild(contentDiv);
@@ -339,8 +461,27 @@
                 removeTypingIndicator();
 
                 // Create assistant message container
-                currentAssistantMessage = addMessage('assistant', '');
-                const contentDiv = currentAssistantMessage;
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message assistant';
+                
+                const avatar = document.createElement('div');
+                avatar.className = 'message-avatar';
+                avatar.textContent = 'A';
+                
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'message-content';
+                
+                messageDiv.appendChild(avatar);
+                messageDiv.appendChild(contentDiv);
+                messagesContainer.appendChild(messageDiv);
+                currentAssistantMessage = contentDiv;
+                currentAssistantRawContent = '';
+
+                // Remove empty state if present
+                const emptyState = messagesContainer.querySelector('.empty-state');
+                if (emptyState) {
+                    emptyState.remove();
+                }
 
                 // Read stream
                 const reader = response.body.getReader();
@@ -363,16 +504,26 @@
                                 
                                 if (parsed.error) {
                                     contentDiv.textContent = parsed.error;
-                                    contentDiv.parentElement.classList.add('error');
+                                    messageDiv.classList.add('error');
                                     break;
                                 }
                                 
                                 if (parsed.content) {
-                                    contentDiv.textContent += parsed.content;
+                                    // Accumulate raw content
+                                    currentAssistantRawContent += parsed.content;
+                                    
+                                    // Re-render the entire content with formatting
+                                    contentDiv.innerHTML = renderFormattedContent(currentAssistantRawContent);
+                                    
+                                    // Re-render LaTeX
+                                    renderLaTeX(contentDiv);
+                                    
                                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
                                 }
                                 
                                 if (parsed.done) {
+                                    // Final render to ensure all LaTeX is processed
+                                    renderLaTeX(contentDiv);
                                     break;
                                 }
                             } catch (e) {
@@ -392,6 +543,7 @@
                 sendButton.disabled = false;
                 messageInput.focus();
                 currentAssistantMessage = null;
+                currentAssistantRawContent = '';
             }
         }
 
