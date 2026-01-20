@@ -1,0 +1,23 @@
+{
+  "name": "redhat-chatbot-web",
+  "version": "1.0.0",
+  "description": "ChatGPT-like chat application using Red Hat AI Services - Web Version",
+  "main": "../common/server.js",
+  "scripts": {
+    "start": "node start-server.js",
+    "dev": "node start-server.js"
+  },
+  "keywords": [
+    "chat",
+    "ai",
+    "redhat",
+    "mistral",
+    "web"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  }
+}

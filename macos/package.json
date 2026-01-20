@@ -1,0 +1,80 @@
+{
+  "name": "redhat-chatbot",
+  "version": "1.0.0",
+  "description": "ChatGPT-like chat application using Red Hat AI Services",
+  "main": "main.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "electron": "electron .",
+    "electron:dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac",
+    "dist": "electron-builder --publish=never"
+  },
+  "keywords": [
+    "chat",
+    "ai",
+    "redhat",
+    "mistral"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.redhat.chatbot",
+    "productName": "Red Hat AI Chatbot",
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.icns"
+    },
+    "dmg": {
+      "writeUpdateInfo": false
+    },
+    "files": [
+      "**/*",
+      "!node_modules/**/*",
+      "!node_modules/.bin/**/*",
+      "!node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!node_modules/*.d.ts",
+      "!node_modules/.hooks",
+      "!node_modules/.cache",
+      "node_modules/**/*",
+      "../common/**/*",
+      "main.js",
+      "preload.js"
+    ],
+    "extraResources": [
+      {
+        "from": "../../secrets.md",
+        "to": "secrets.md"
+      },
+      {
+        "from": "../common",
+        "to": "common",
+        "filter": ["**/*"]
+      }
+    ],
+    "directories": {
+      "output": "dist",
+      "app": "."
+    }
+  }
+}

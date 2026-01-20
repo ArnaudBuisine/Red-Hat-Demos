@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+web/node_modules/
+macos/node_modules/
+
+# Package lock files (each version has its own)
+package-lock.json
+
+# Build outputs
+dist/
+macos/dist/
+web/dist/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+
+# Temporary files
+macos/.server-wrapper.js
+
+# Build artifacts (unnecessary files)
+macos/dist/*.zip
+macos/dist/*.blockmap
+macos/dist/builder-*.yml
+macos/dist/builder-*.yaml
+macos/dist/mac-*/

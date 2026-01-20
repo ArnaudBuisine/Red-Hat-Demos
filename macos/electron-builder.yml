@@ -1,0 +1,40 @@
+appId: com.redhat.chatbot
+productName: Red Hat AI Chatbot
+directories:
+  output: dist
+  buildResources: build
+
+mac:
+  category: public.app-category.utilities
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  icon: assets/icon.icns
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: null
+
+dmg:
+  writeUpdateInfo: false
+
+files:
+  - "**/*"
+  - "!node_modules/**/*"
+  - "!node_modules/.bin/**/*"
+  - "!node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}"
+  - "!node_modules/*/{test,__tests__,tests,powered-test,example,examples}"
+  - "!node_modules/*.d.ts"
+  - "!node_modules/.hooks"
+  - "!node_modules/.cache"
+  - "node_modules/**/*"
+  - "../common/**/*"
+  - "main.js"
+  - "preload.js"
+
+extraResources:
+  - from: ../../secrets.md
+    to: secrets.md
+  - from: ../common
+    to: common
