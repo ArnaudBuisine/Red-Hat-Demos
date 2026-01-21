@@ -108,12 +108,58 @@
             color: #333;
         }
 
-        .message-content {
+        .message-content-wrapper {
+            position: relative;
             max-width: 70%;
+        }
+
+        .message-content {
             padding: 12px 16px;
             border-radius: 12px;
             line-height: 1.5;
             word-wrap: break-word;
+        }
+
+        .copy-button {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 12px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s, background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: #666;
+            z-index: 10;
+        }
+
+        .message.assistant:hover .copy-button {
+            opacity: 1;
+        }
+
+        .copy-button:hover {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .copy-button:active {
+            background: #e0e0e0;
+        }
+
+        .copy-button.copied {
+            background: #4caf50;
+            color: white;
+            border-color: #4caf50;
+        }
+
+        .copy-button.copied::after {
+            content: ' ✓';
         }
 
         /* Markdown formatting styles */
@@ -364,7 +410,141 @@
             }
         }
 
-        function addMessage(role, content, isError = false) {
+        // Function to copy formatted content to clipboard
+        async function copyToClipboard(rawText, button) {
+            try {
+                // Copy the raw text content (which includes LaTeX notation)
+                // This preserves the original formatting like \[ PV = nRT \] and \( P \)
+                const textToCopy = rawText || '';
+                
+                if (!textToCopy || textToCopy.trim() === '') {
+                    console.warn('No content to copy');
+                    button.textContent = 'No content';
+                    setTimeout(() => {
+                        button.textContent = 'Copy';
+                    }, 2000);
+                    return;
+                }
+                
+                console.log('Copying text (length:', textToCopy.length, '):', textToCopy.substring(0, 100) + '...');
+                
+                let copySuccessful = false;
+                
+                // Try modern Clipboard API first (requires HTTPS or localhost)
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    try {
+                        await navigator.clipboard.writeText(textToCopy);
+                        console.log('Successfully copied using Clipboard API');
+                        copySuccessful = true;
+                    } catch (clipboardError) {
+                        console.warn('Clipboard API failed, trying fallback:', clipboardError);
+                        // Fall through to fallback
+                    }
+                }
+                
+                // Fallback method (works in all browsers, including when Clipboard API fails)
+                if (!copySuccessful) {
+                    console.log('Using fallback copy method');
+                    const textArea = document.createElement('textarea');
+                    textArea.value = textToCopy;
+                    textArea.style.position = 'fixed';
+                    textArea.style.top = '0';
+                    textArea.style.left = '0';
+                    textArea.style.width = '2em';
+                    textArea.style.height = '2em';
+                    textArea.style.padding = '0';
+                    textArea.style.border = 'none';
+                    textArea.style.outline = 'none';
+                    textArea.style.boxShadow = 'none';
+                    textArea.style.background = 'transparent';
+                    textArea.style.opacity = '0';
+                    textArea.style.zIndex = '-9999';
+                    textArea.setAttribute('readonly', '');
+                    textArea.setAttribute('aria-hidden', 'true');
+                    
+                    document.body.appendChild(textArea);
+                    
+                    // Select and copy - try multiple methods for better compatibility
+                    textArea.focus();
+                    textArea.select();
+                    
+                    // For iOS
+                    if (navigator.userAgent.match(/ipad|iphone/i)) {
+                        const range = document.createRange();
+                        range.selectNodeContents(textArea);
+                        const selection = window.getSelection();
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                        textArea.setSelectionRange(0, 999999);
+                    } else {
+                        textArea.setSelectionRange(0, textToCopy.length);
+                    }
+                    
+                    try {
+                        const successful = document.execCommand('copy');
+                        if (!successful) {
+                            throw new Error('execCommand returned false');
+                        }
+                        console.log('Successfully copied using fallback method');
+                        copySuccessful = true;
+                    } catch (execError) {
+                        console.error('execCommand failed:', execError);
+                        throw new Error('Both copy methods failed');
+                    } finally {
+                        document.body.removeChild(textArea);
+                    }
+                }
+                
+                if (!copySuccessful) {
+                    throw new Error('All copy methods failed');
+                }
+                
+                // Verify copy by reading back (optional, for debugging)
+                if (navigator.clipboard && navigator.clipboard.readText) {
+                    try {
+                        const copiedText = await navigator.clipboard.readText();
+                        console.log('Verified clipboard content:', copiedText.substring(0, 50) + '...');
+                    } catch (e) {
+                        // Can't verify, but that's okay
+                        console.log('Could not verify clipboard (permission issue)');
+                    }
+                }
+                
+                // Show feedback
+                const originalText = button.textContent.replace(' ✓', '').replace('Copied!', 'Copy').replace('Failed', 'Copy');
+                button.classList.add('copied');
+                button.textContent = 'Copied!';
+                
+                setTimeout(() => {
+                    button.classList.remove('copied');
+                    button.textContent = originalText;
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy:', err);
+                button.textContent = 'Failed';
+                button.style.background = '#f44336';
+                setTimeout(() => {
+                    button.textContent = 'Copy';
+                    button.style.background = '';
+                }, 2000);
+            }
+        }
+
+        // Function to strip HTML and convert to plain text (preserving formatting)
+        function stripHtml(html) {
+            const tmp = document.createElement('DIV');
+            tmp.innerHTML = html;
+            
+            // Convert LaTeX to readable format
+            tmp.querySelectorAll('.katex').forEach(el => {
+                const mathText = el.getAttribute('aria-label') || el.textContent;
+                el.replaceWith(document.createTextNode(mathText));
+            });
+            
+            return tmp.textContent || tmp.innerText || '';
+        }
+
+        function addMessage(role, content, isError = false, rawContent = null) {
             // Remove empty state if present
             const emptyState = messagesContainer.querySelector('.empty-state');
             if (emptyState) {
@@ -378,6 +558,10 @@
             avatar.className = 'message-avatar';
             avatar.textContent = role === 'user' ? 'U' : 'A';
             
+            // Create wrapper for content and copy button
+            const contentWrapper = document.createElement('div');
+            contentWrapper.className = 'message-content-wrapper';
+            
             const contentDiv = document.createElement('div');
             contentDiv.className = 'message-content';
             
@@ -386,18 +570,57 @@
                 contentDiv.innerHTML = renderFormattedContent(content);
                 // Render LaTeX after a short delay to ensure DOM is ready
                 setTimeout(() => renderLaTeX(contentDiv), 10);
+                
+                // Add copy button for assistant messages
+                const copyButton = document.createElement('button');
+                copyButton.className = 'copy-button';
+                copyButton.textContent = 'Copy';
+                copyButton.title = 'Copy answer to clipboard';
+                // Store content reference in the button's data attribute for later access
+                copyButton.setAttribute('data-content', rawContent || content || '');
+                copyButton.onclick = async (e) => {
+                    e.stopPropagation(); // Prevent any event bubbling
+                    // Get content from data attribute, or from the message div, or fallback to content
+                    let contentToCopy = copyButton.getAttribute('data-content') || 
+                                       messageDiv.getAttribute('data-raw-content') || 
+                                       rawContent || 
+                                       content || '';
+                    
+                    // If still empty, try to get from the content div's text
+                    if (!contentToCopy || contentToCopy.trim() === '') {
+                        contentToCopy = contentDiv.textContent || contentDiv.innerText || '';
+                    }
+                    
+                    console.log('Copy button clicked, content length:', contentToCopy?.length || 0);
+                    if (contentToCopy && contentToCopy.trim() !== '') {
+                        await copyToClipboard(contentToCopy, copyButton);
+                    } else {
+                        console.warn('No content found to copy');
+                        copyButton.textContent = 'No content';
+                        setTimeout(() => {
+                            copyButton.textContent = 'Copy';
+                        }, 2000);
+                    }
+                };
+                contentWrapper.appendChild(copyButton);
+                
+                // Store raw content in data attribute for copying
+                if (rawContent) {
+                    messageDiv.setAttribute('data-raw-content', rawContent);
+                }
             } else {
                 // For user messages and errors, use plain text
                 contentDiv.textContent = content;
             }
             
+            contentWrapper.appendChild(contentDiv);
             messageDiv.appendChild(avatar);
-            messageDiv.appendChild(contentDiv);
+            messageDiv.appendChild(contentWrapper);
             messagesContainer.appendChild(messageDiv);
             
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
             
-            return contentDiv;
+            return { contentDiv, messageDiv };
         }
 
         function addTypingIndicator() {
@@ -468,11 +691,42 @@
                 avatar.className = 'message-avatar';
                 avatar.textContent = 'A';
                 
+                // Create wrapper for content and copy button
+                const contentWrapper = document.createElement('div');
+                contentWrapper.className = 'message-content-wrapper';
+                
                 const contentDiv = document.createElement('div');
                 contentDiv.className = 'message-content';
                 
+                // Add copy button
+                const copyButton = document.createElement('button');
+                copyButton.className = 'copy-button';
+                copyButton.textContent = 'Copy';
+                copyButton.title = 'Copy answer to clipboard';
+                copyButton.style.opacity = '1'; // Always visible during streaming
+                // Store reference to currentAssistantRawContent in button
+                copyButton.setAttribute('data-content', '');
+                copyButton.onclick = async (e) => {
+                    e.stopPropagation();
+                    // Get the latest content from currentAssistantRawContent or data attribute
+                    let contentToCopy = currentAssistantRawContent || copyButton.getAttribute('data-content') || '';
+                    
+                    console.log('Copy button clicked (streaming), content length:', contentToCopy?.length || 0);
+                    if (contentToCopy && contentToCopy.trim() !== '') {
+                        await copyToClipboard(contentToCopy, copyButton);
+                    } else {
+                        console.warn('No content found to copy (streaming)');
+                        copyButton.textContent = 'No content';
+                        setTimeout(() => {
+                            copyButton.textContent = 'Copy';
+                        }, 2000);
+                    }
+                };
+                contentWrapper.appendChild(copyButton);
+                
+                contentWrapper.appendChild(contentDiv);
                 messageDiv.appendChild(avatar);
-                messageDiv.appendChild(contentDiv);
+                messageDiv.appendChild(contentWrapper);
                 messagesContainer.appendChild(messageDiv);
                 currentAssistantMessage = contentDiv;
                 currentAssistantRawContent = '';
@@ -518,12 +772,43 @@
                                     // Re-render LaTeX
                                     renderLaTeX(contentDiv);
                                     
+                                    // Update copy button handler and data attribute
+                                    copyButton.setAttribute('data-content', currentAssistantRawContent);
+                                    copyButton.onclick = async (e) => {
+                                        e.stopPropagation();
+                                        const contentToCopy = currentAssistantRawContent || copyButton.getAttribute('data-content') || '';
+                                        console.log('Copy during streaming, content length:', contentToCopy.length);
+                                        if (contentToCopy && contentToCopy.trim() !== '') {
+                                            await copyToClipboard(contentToCopy, copyButton);
+                                        } else {
+                                            console.warn('No content to copy during streaming');
+                                        }
+                                    };
+                                    
                                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
                                 }
                                 
                                 if (parsed.done) {
                                     // Final render to ensure all LaTeX is processed
                                     renderLaTeX(contentDiv);
+                                    // Store raw content in message div and button for copying
+                                    messageDiv.setAttribute('data-raw-content', currentAssistantRawContent);
+                                    copyButton.setAttribute('data-content', currentAssistantRawContent);
+                                    // Make copy button only visible on hover after completion
+                                    copyButton.style.opacity = '';
+                                    // Final update of copy button handler
+                                    copyButton.onclick = async (e) => {
+                                        e.stopPropagation();
+                                        const contentToCopy = currentAssistantRawContent || 
+                                                             copyButton.getAttribute('data-content') || 
+                                                             messageDiv.getAttribute('data-raw-content') || '';
+                                        console.log('Copy after completion, content length:', contentToCopy.length);
+                                        if (contentToCopy && contentToCopy.trim() !== '') {
+                                            await copyToClipboard(contentToCopy, copyButton);
+                                        } else {
+                                            console.warn('No content to copy after completion');
+                                        }
+                                    };
                                     break;
                                 }
                             } catch (e) {
